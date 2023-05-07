@@ -1,21 +1,34 @@
 require('dotenv').config();
-import express, { NextFunction, Request, Response } from 'express';
-import connectDB from './utils/connect.db';
+import express, { Response } from 'express';
+import validateEnv from './utils/validateEnv';
+import { PrismaClient } from '@prisma/client';
+import redisClient from './utils/connectRedis';
+
+validateEnv();
+
+const prisma = new PrismaClient();
 const app = express();
 
-const port = process.env.PORT || 9595;
-
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-    err.status = err.status || 'error';
-    err.statusCode = err.statusCode || 500;
-  
-    res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message,
+async function start() {
+    app.get('/api/check', async (_, res: Response) => {
+        const message = await redisClient.get('try');
+        res.status(200).json({
+            status: 'sucess',
+            message,
+        });
     });
-  });
 
-app.listen(port, () => {
-    console.log(`Server started on port: ${port}`);
-    connectDB();
-})
+    const port = process.env.PORT;
+
+    app.listen(port, () => {
+        console.log(`Server is running on: http://localhost:${port}`);
+    });
+}
+
+start()
+    .catch((err) => {
+        throw err;
+    })
+    .finally(async () => {
+        await prisma.$disconnect();
+    });
